@@ -2,7 +2,7 @@
 
 Bring eBus to the world of REST and IoT.
 
-by benjamin.wolters@live.de
+by Ben Wolters and maybe more in future
 
 # howto use
 
