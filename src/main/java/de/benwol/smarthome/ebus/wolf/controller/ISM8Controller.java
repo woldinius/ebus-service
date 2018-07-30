@@ -8,7 +8,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 public class ISM8Controller {
 
     @RequestMapping("/")
-    public String index() {
+    public String aliveString() {
         return "I'm alive and can controll Wolf Things";
     }
 
