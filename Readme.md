@@ -2,9 +2,8 @@
 
 ## --> under construction
 
-Bring eBus to the world of REST and IoT.
-
-by Ben Wolters and maybe more in future
+Brings eBus to the world of REST and IoT.
+ by Ben Wolters and maybe more soon
 
 # howto use
 
