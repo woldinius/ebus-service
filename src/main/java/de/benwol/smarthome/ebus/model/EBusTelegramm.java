@@ -2,18 +2,18 @@ package de.benwol.smarthome.ebus.model;
 
 import com.fasterxml.jackson.core.util.ByteArrayBuilder;
 
-public class EBusTelegramm {
+public class EBusTelegramm implements EBusUsable {
 
     private EBusHeader eBusHeader;
 
     public EBusTelegramm() {
-        eBusHeader = new EBusHeader();
+
     }
 
-    public byte[] toByteArray() {
+    public byte[] byteArray() {
         ByteArrayBuilder builder = new ByteArrayBuilder();
-        builder.write(eBusHeader.getHeaderByteArray());
-        //builder.write(TODO);
+        builder.write(eBusHeader.byteArray());
+        // builder.write(TODO);
         return builder.toByteArray();
     }
 

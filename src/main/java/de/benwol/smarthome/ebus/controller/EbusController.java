@@ -1,18 +1,20 @@
 package de.benwol.smarthome.ebus.controller;
 
-import java.net.Socket;
-import de.benwol.smarthome.ebus.model.EBusTelegramm;;
+import de.benwol.smarthome.ebus.controller.comm.EBusCommunicator;
+import de.benwol.smarthome.ebus.model.EBusTelegramm;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 public class EbusController {
 
-    private Socket ebusMasterSocket;
+    private EBusCommunicator eBusCommunicator;
 
-    public EbusController(Socket ebusMasterSocket) {
-        this.ebusMasterSocket = ebusMasterSocket;
+    public EbusController(EBusCommunicator eBusCommunicator) {
+        this.eBusCommunicator = eBusCommunicator;
     }
 
-    public boolean sendMessage(EbusTelegramm EbusTelegramm) {
-        ebusMasterSocket.getOutputStream().write(EbusTelegramm);
+    public boolean sendMessage(EBusTelegramm ebusTelegramm) {
+        return eBusCommunicator.writeTelegramm(ebusTelegramm);
     }
 
 }
