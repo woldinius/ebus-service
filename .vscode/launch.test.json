@@ -1,0 +1,30 @@
+{
+    "run": {
+        "default": "",
+        "items": [
+            {
+                "name": "ebus-service",
+                "projectName": "ebus-service",
+                "workingDirectory": "c:\\Users\\benja\\Documents\\code-space\\ebus-service",
+                "args": [],
+                "vmargs": [],
+                "env": {},
+                "preLaunchTask": ""
+            }
+        ]
+    },
+    "debug": {
+        "default": "",
+        "items": [
+            {
+                "name": "ebus-service",
+                "projectName": "ebus-service",
+                "workingDirectory": "c:\\Users\\benja\\Documents\\code-space\\ebus-service",
+                "args": [],
+                "vmargs": [],
+                "env": {},
+                "preLaunchTask": ""
+            }
+        ]
+    }
+}

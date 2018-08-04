@@ -1,5 +1,9 @@
 package de.benwol.smarthome.ebus.model;
 
+import static org.hamcrest.Matchers.greaterThanOrEqualTo;
+import static org.hamcrest.Matchers.lessThanOrEqualTo;
+import static org.junit.Assert.assertThat;
+
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
@@ -16,8 +20,8 @@ public class EBusTelegrammValue implements EBusUsable {
     private int length;
 
     public EBusTelegrammValue(int index, int length, byte... value) {
-        assert (value.length <= length);
-        assert (index > 0);
+        assertThat(value.length, lessThanOrEqualTo(length));
+        assertThat(index, greaterThanOrEqualTo(0));
         setValue(value);
         setIndex(index);
         setLength(length);

@@ -5,9 +5,11 @@ import java.io.OutputStream;
 import java.net.Socket;
 
 import de.benwol.smarthome.ebus.model.EBusTelegramm;
+import lombok.ToString;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
+@ToString
 public class EBusCommunicator {
     private Socket ebusSocket;
 
