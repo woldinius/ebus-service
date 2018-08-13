@@ -1,8 +1,6 @@
 package de.benwol.smarthome.ebus.controller;
 
 import de.benwol.smarthome.ebus.controller.comm.EBusCommunicator;
-import de.benwol.smarthome.ebus.controller.comm.EBusEventListener;
-import de.benwol.smarthome.ebus.controller.comm.EBusWriteCommunicator;
 import de.benwol.smarthome.ebus.model.EBusTelegramm;
 import lombok.extern.slf4j.Slf4j;
 
@@ -17,7 +15,7 @@ public class EbusController  {
 
     public boolean sendMessage(EBusTelegramm ebusTelegramm) {
         log.debug("send an telegramm {} to {}", ebusTelegramm.toString(), eBusSender.toString());
-        return eBusSender.writeTelegramm(ebusTelegramm);
+        return eBusSender.sendTelegramm(ebusTelegramm);
     }
 
     public void recieved(EBusTelegramm busTelegramm) {
