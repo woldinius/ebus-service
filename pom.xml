@@ -13,6 +13,15 @@
         <version>2.0.3.RELEASE</version>
     </parent>
 
+
+    <repositories>
+        <repository>
+            <id>homer.core</id>
+            <name>homer.core</name>
+            <url>https://nexus.arcsmed.at/content/repositories/homer.core/</url>
+        </repository>
+    </repositories>
+
     <dependencies>
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -23,7 +32,12 @@
             <artifactId>spring-boot-starter-test</artifactId>
             <!--scope>test</scope-->
         </dependency>
-        
+        <!-- https://mvnrepository.com/artifact/gnu.io/rxtx -->
+        <dependency>
+            <groupId>gnu.io</groupId>
+            <artifactId>rxtx</artifactId>
+            <version>2.1.7</version>
+        </dependency>
         <!-- provided -->
         <dependency>
             <groupId>org.projectlombok</groupId>

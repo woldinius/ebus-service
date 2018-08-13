@@ -1,20 +1,28 @@
 package de.benwol.smarthome.ebus.controller;
 
 import de.benwol.smarthome.ebus.controller.comm.EBusCommunicator;
+import de.benwol.smarthome.ebus.controller.comm.EBusEventListener;
+import de.benwol.smarthome.ebus.controller.comm.EBusWriteCommunicator;
 import de.benwol.smarthome.ebus.model.EBusTelegramm;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
-public class EbusController {
+public class EbusController  {
 
-    private EBusCommunicator eBusCommunicator;
+    private EBusCommunicator eBusSender;
 
-    public EbusController(EBusCommunicator eBusCommunicator) {
-        this.eBusCommunicator = eBusCommunicator;
+    public EbusController(EBusCommunicator eBusSender) {
+        this.eBusSender = eBusSender;
     }
 
     public boolean sendMessage(EBusTelegramm ebusTelegramm) {
-        return eBusCommunicator.writeTelegramm(ebusTelegramm);
+        log.debug("send an telegramm {} to {}", ebusTelegramm.toString(), eBusSender.toString());
+        return eBusSender.writeTelegramm(ebusTelegramm);
+    }
+
+    public void recieved(EBusTelegramm busTelegramm) {
+        // TODO logs
+        System.out.println("recived: " + busTelegramm.toString());
     }
 
 }
