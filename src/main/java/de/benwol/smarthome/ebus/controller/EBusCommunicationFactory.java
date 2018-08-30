@@ -9,7 +9,7 @@ import lombok.extern.slf4j.Slf4j;
 public class EBusCommunicationFactory {
 
     private enum EBusDeviceConnection {
-        USB, TCP
+        USB, TCP, RS232
     };
 
     public EbusController buildEbusController(String type) {
@@ -21,8 +21,10 @@ public class EBusCommunicationFactory {
             return buildUSBController();
         case TCP:
             return buildTCPController();
+        case RS232:
+            return buildRS232Controller();
         }
-        
+
         log.debug("Type {} not implemented, but {} found", type, deviceConnection);
         throw new UnsupportedOperationException(
                 type + " -connection is not implemented yet, please connect the developer");
@@ -35,6 +37,10 @@ public class EBusCommunicationFactory {
     }
 
     private EbusController buildTCPController() {
+        throw new UnsupportedOperationException("TCP Connection is not implemented yet, please connect the developer");
+    }
+
+    private EbusController buildRS232Controller() {
         throw new UnsupportedOperationException("TCP Connection is not implemented yet, please connect the developer");
     }
 

@@ -36,7 +36,9 @@
         <dependency>
             <groupId>gnu.io</groupId>
             <artifactId>rxtx</artifactId>
-            <version>2.1.7</version>
+            <version>2.2</version>
+            <scope>system</scope>
+            <systemPath>${project.basedir}/external/mfz-rxtx-2.2-20081207-win-x64/RXTXcomm.jar</systemPath>
         </dependency>
         <!-- provided -->
         <dependency>

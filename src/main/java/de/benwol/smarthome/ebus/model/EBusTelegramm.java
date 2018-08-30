@@ -15,7 +15,7 @@ public class EBusTelegramm implements EBusUsable {
     public byte[] byteArray() {
         @Cleanup ByteArrayBuilder builder = new ByteArrayBuilder();
         builder.write(eBusHeader.byteArray());
-        // builder.write(TODO);
+        
         return builder.toByteArray();
     }
 
