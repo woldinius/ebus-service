@@ -1,0 +1,13 @@
+{
+  "name": "eBus",
+  "short_name": "eBus",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "background_color": "#141618",
+  "theme_color": "#2f6f8f",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml" },
+    { "src": "icon.png", "sizes": "180x180", "type": "image/png" }
+  ]
+}

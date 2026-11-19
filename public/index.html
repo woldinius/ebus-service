@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="eBus">
+  <title>eBus</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icon.png">
+  <link rel="stylesheet" href="style.css">
+  <script type="module" src="app.js"></script>
+</head>
+<body>
+  <header>
+    <h1>eBus <span class="leise" id="titel"></span></h1>
+    <p id="lage" class="lage" aria-live="polite">lädt …</p>
+  </header>
+
+  <main>
+    <section aria-labelledby="t-verlauf">
+      <h2 id="t-verlauf">Telegramme je Stunde <span class="leise" id="verlauf-summe"></span></h2>
+      <div id="verlauf" class="verlauf" role="img" aria-label="Telegramme je Stunde der letzten 7 Tage"></div>
+    </section>
+
+    <section aria-labelledby="t-nachrichten">
+      <h2 id="t-nachrichten">Nachrichten <span class="leise">· je Absender, Empfänger und Befehl, das Jüngste oben</span></h2>
+      <div class="rollen">
+        <table id="nachrichten">
+          <thead><tr>
+            <th>Von → An</th><th>Befehl</th><th>Name</th><th class="zahl">Anzahl</th><th>Zuletzt</th><th>Daten</th><th>Antwort / Text</th><th>Status</th>
+          </tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <p class="hinweis">Eine Zeile anklicken zeigt unten nur diese Nachricht.</p>
+    </section>
+
+    <section aria-labelledby="t-telegramme">
+      <h2 id="t-telegramme">Telegramme</h2>
+      <form id="filter" class="filter">
+        <label>Zeitraum
+          <select name="zeitraum">
+            <option value="3600000">letzte Stunde</option>
+            <option value="86400000" selected>letzte 24 Stunden</option>
+            <option value="604800000">7 Tage</option>
+          </select>
+        </label>
+        <label>Status
+          <select name="status">
+            <option value="">alle</option>
+            <option value="ok">ok</option>
+            <option value="keine-antwort">keine Antwort</option>
+            <option value="nak">NAK</option>
+            <option value="crc-fehler">CRC-Fehler</option>
+            <option value="unvollstaendig">unvollständig</option>
+          </select>
+        </label>
+        <span id="auswahl" class="auswahl" hidden>
+          <span id="auswahl-text"></span>
+          <button type="button" id="auswahl-weg" aria-label="Auswahl aufheben">×</button>
+        </span>
+      </form>
+      <div class="rollen">
+        <table id="telegramme">
+          <thead><tr>
+            <th>Zeit</th><th>Von → An</th><th>Art</th><th>Befehl</th><th>Name</th><th>Daten</th><th>Antwort / Text</th><th>Status</th>
+          </tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <p><button type="button" id="mehr" hidden>Ältere laden</button></p>
+    </section>
+  </main>
+
+  <footer>
+    <p class="leise">Nur lesend mitgeschnitten über ebusd. Aufbewahrt werden <span id="tage">7</span> Tage, Älteres löscht der Dienst selbst.</p>
+  </footer>
+</body>
+</html>

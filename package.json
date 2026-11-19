@@ -1,0 +1,14 @@
+{
+  "name": "ebus-service",
+  "version": "1.0.0",
+  "description": "Liest das Rohprotokoll von ebusd mit, hält die Telegramme 7 Tage in SQLite und zeigt sie im Browser",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24.14"
+  },
+  "scripts": {
+    "start": "node --disable-warning=ExperimentalWarning src/main.ts",
+    "test": "node --disable-warning=ExperimentalWarning --test src/*.test.ts"
+  }
+}

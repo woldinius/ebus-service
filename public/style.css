@@ -1,0 +1,70 @@
+:root {
+  --grund: #f7f7f5;
+  --flaeche: #ffffff;
+  --text: #1d1f21;
+  --leise: #61656b;
+  --linie: #dcdcd8;
+  --akzent: #2f6f8f;
+  --ok: #2e7d4f;
+  --warn: #a8641a;
+  --fehler: #b3261e;
+  --balken: #2f6f8f;
+  --auswahl: #e3eef3;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 15px;
+  line-height: 1.45;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --grund: #141618;
+    --flaeche: #1c1f22;
+    --text: #e6e6e3;
+    --leise: #9a9ea4;
+    --linie: #31353a;
+    --akzent: #7fb6d1;
+    --ok: #6cc28f;
+    --warn: #e0a256;
+    --fehler: #ef8a83;
+    --balken: #6fa9c6;
+    --auswahl: #23343d;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--grund); color: var(--text); }
+header, main, footer { max-width: 1200px; margin: 0 auto; padding: 0 16px; }
+header { padding-top: 20px; }
+h1 { font-size: 1.5rem; margin: 0 0 4px; }
+h2 { font-size: 1.05rem; margin: 28px 0 10px; }
+.leise { color: var(--leise); font-weight: normal; }
+.lage { margin: 0; color: var(--leise); }
+.lage .punkt { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; background: var(--fehler); }
+.lage .punkt.an { background: var(--ok); }
+section { background: var(--flaeche); border: 1px solid var(--linie); border-radius: 10px; padding: 4px 16px 14px; margin-top: 16px; }
+.verlauf { position: relative; padding-bottom: 20px; }
+.verlauf svg { width: 100%; height: 100px; display: block; }
+.verlauf rect { fill: var(--balken); }
+.verlauf line { stroke: var(--linie); }
+.achse { position: absolute; left: 0; right: 0; bottom: 0; height: 18px; overflow: hidden; }
+.achse span { position: absolute; bottom: 0; padding-left: 3px; font-size: 11px; color: var(--leise); white-space: nowrap; }
+.rollen { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 0.9rem; }
+th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--linie); vertical-align: top; white-space: nowrap; }
+th { color: var(--leise); font-weight: 600; position: sticky; top: 0; background: var(--flaeche); }
+td.hex { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.85rem; white-space: normal; word-break: break-all; min-width: 12ch; }
+td.zahl, th.zahl { text-align: right; font-variant-numeric: tabular-nums; }
+#nachrichten tbody tr { cursor: pointer; }
+#nachrichten tbody tr:hover, tr.gewaehlt { background: var(--auswahl); }
+.status { font-size: 0.8rem; padding: 1px 7px; border-radius: 9px; border: 1px solid currentColor; }
+.status.ok { color: var(--ok); }
+.status.keine-antwort, .status.unvollstaendig { color: var(--warn); }
+.status.nak, .status.crc-fehler { color: var(--fehler); }
+.filter { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; margin-bottom: 8px; }
+.filter label { display: flex; flex-direction: column; font-size: 0.85rem; color: var(--leise); gap: 2px; }
+select, button { font: inherit; color: var(--text); background: var(--grund); border: 1px solid var(--linie); border-radius: 6px; padding: 4px 8px; }
+button { cursor: pointer; }
+.auswahl { display: inline-flex; gap: 6px; align-items: center; background: var(--auswahl); border-radius: 6px; padding: 4px 4px 4px 10px; }
+[hidden] { display: none !important; }
+.auswahl button { border: 0; background: transparent; padding: 0 6px; font-size: 1.1rem; line-height: 1; }
+.hinweis { color: var(--leise); font-size: 0.85rem; margin: 8px 0 0; }
+.leer { color: var(--leise); padding: 12px 8px; }
+footer { padding-bottom: 24px; font-size: 0.85rem; }
