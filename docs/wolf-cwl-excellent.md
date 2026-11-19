@@ -5,7 +5,7 @@ Was eine Wolf CWL 300 Excellent (baugleich Brink Renovent Excellent) ohne Bedien
 
 | Telegramm | Ziel | Wie oft | Antwort | Bedeutung |
 |---|---|---|---|---|
-| `37 xx 40 a0 04 00 32 00 32` | `56`, `57`, … `5e` reihum | alle ~5 s, jede Adresse ~45 s | keine | Herstellerbefehl ENCON (`40`). Vermutung: die CWL verteilt als Kaskaden-Master ihren Sollwert an die möglichen Slaves 1 bis 9; ohne gekoppelte Geräte antwortet niemand. `00 32` ist 50, zweimal |
+| `37 xx 40 a0 04 00 32 00 32` | `56`, `57`, … `5e` reihum | alle ~5 s, jede Adresse ~45 s | keine | Herstellerbefehl ENCON (`40`). Vermutung: die CWL verteilt als Kaskaden-Master ihren Sollwert an die möglichen Slaves 1 bis 9; ohne gekoppelte Geräte antwortet niemand. `00 32 00 32` ist zweimal 50: Die Anlage stand auf 50 m³/h, also wohl die Luftmenge für Zu- und Abluft |
 | `37 fe 07 04 0a 40 08 16 00 22 02 ff ff ff ff` | alle (Rundruf) | alle ~10 min | — | eBus-Standard Identifikation; `40` ist die Herstellerkennung ENCON, den Rest deutet hier noch nichts |
 | `37 fe fe 01 0a "E000      "` | alle (Rundruf) | alle ~10 min, ~37 s nach `07 04` | — | eBus-Standard Fehlermeldung, zehn Zeichen Text. `E000` steht in keiner Anleitung; vermutlich „keine Störung“ |
 
@@ -30,6 +30,10 @@ gehört, steht in der Anleitung nicht; neun aufeinanderfolgende Ziele `56` bis `
 | E108 | Fühler externe Temperatur (Nachheizregister, Erdwärmetauscher) | nein |
 | E111 | Feuchtesensor defekt | nein |
 | E999 | Mikroschalter (Gerätetyp) falsch gesetzt | ja |
+
+**Filter.** Die Anzeige „FILTER“ (Filterwechsel fällig) ist kein Fehlercode: Die Fehlermeldung `fe 01` blieb dabei `E000`, und
+von selbst sendet die CWL nichts zum Filter. Den Zustand gibt sie nur auf Anfrage heraus (`FilterStatus` in `40 22`,
+`TotalFilterDays` in `40 50`).
 
 **Lesen statt nur hören.** Die Werte (Lüftungsstufe, Temperaturen, Luftmengen, Bypass, Filter) fragt ebusd mit der Definition
 `encon/3c..excellent` aus [ebusd-configuration](https://github.com/john30/ebusd-configuration) ab; dafür muss ebusd senden dürfen.
