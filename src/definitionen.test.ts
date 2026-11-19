@@ -35,5 +35,7 @@ test('ohne Kennung passt jede Nachricht mit dieser PB/SB, die längste Kennung g
 test('eBus-Standarddienste ohne Definition', () => {
   const d = Definitionen.ausCsv('');
   assert.equal(d.finde(tel('37 fe fe 01 0a 45 30 30 30 20 20 20 20 20 20 3d'))?.name, 'Fehlermeldung');
+  assert.equal(d.finde(tel('37 fe 07 04 0a 40 08 16 00 22 02 ff ff ff ff 66'))?.name, 'Identifikation',
+    'Rundruf einer Wolf CWL alle 10 Minuten, 40 = Hersteller ENCON');
   assert.equal(d.finde(tel('37 5a 40 a0 04 00 32 00 32 4f')), null);
 });

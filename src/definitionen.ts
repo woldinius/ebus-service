@@ -14,7 +14,10 @@ interface Eintrag extends Treffer {
 }
 
 // Allgemeine eBus-Dienste, die ohne Definition einen Namen bekommen (Anwendungsschicht der eBUS-Spezifikation)
-const STANDARD: Eintrag[] = [{ pbsb: 'fe01', id: '', name: 'Fehlermeldung', kommentar: 'eBus-Standard: Fehlercode als Text' }];
+const STANDARD: Eintrag[] = [
+  { pbsb: 'fe01', id: '', name: 'Fehlermeldung', kommentar: 'eBus-Standard: Fehlercode als Text' },
+  { pbsb: '0704', id: '', name: 'Identifikation', kommentar: 'eBus-Standard: erstes Datenbyte ist der Hersteller' },
+];
 
 export class Definitionen {
   eintraege: Eintrag[];

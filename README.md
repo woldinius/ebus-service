@@ -109,6 +109,8 @@ Nach der eBUS-Spezifikation OSI 1/2 V1.3.1 ([`docs/`](docs/Spec_Prot_12_V1_3_1.p
 
 Der Status jedes Telegramms ist `ok`, `keine-antwort`, `nak`, `crc-fehler` oder `unvollstaendig`.
 
+Was eine Wolf CWL Excellent sendet, steht in [`docs/wolf-cwl-excellent.md`](docs/wolf-cwl-excellent.md).
+
 ## Entwickeln
 
 Node ab 24.14, sonst nichts: Node führt TypeScript direkt aus und bringt SQLite (`node:sqlite`) und den Testlauf mit. Keine
