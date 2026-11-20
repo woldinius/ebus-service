@@ -8,8 +8,13 @@
 // Zeilen: 'YYYY-MM-DD HH:MM:SS.mmm <HEX', Zeit in der Zeitzone des ebusd-Containers (UTC), HEX = Bytes zwischen zwei SYN, wie sie auf
 // dem Bus standen, also mit ACK, Antwort des Slaves und A9-Escapes. Nach 64 Hex-Zeichen endet die Zeile mit '...', die nächste
 // beginnt nach der Zeit mit '...<'.
+//
+// Sendet ebusd selbst, wechselt die Richtung mitten in der Zeile: '>' gesendet, '<' empfangen, etwa '>313c40220101xx<0002…>00'
+// für Anfrage, Antwort der CWL und Quittung von ebusd. Das Echo der eigenen Bytes schreibt ebusd nicht mit; dabei fällt jedes
+// empfangene Byte weg, das dem zuletzt gesendeten gleicht, also auch die Quittung 00 des Slaves, wenn das CRC davor 00 war
+// (ebusd 26.1, src/lib/ebus/protocol.cpp, notifyDeviceData). Diese eine Lücke füllt Rohprotokoll wieder auf.
 import { closeSync, fstatSync, openSync, readSync, statSync } from 'node:fs';
-import { vonHex } from './telegramm.ts';
+import { istMaster, vonHex, wartetAufQuittung } from './telegramm.ts';
 
 export interface Position {
   inode: number;
@@ -100,12 +105,18 @@ export interface Stueck {
   roh: Uint8Array;
 }
 
-const ZEILE = /^(\d{4})-(\d\d)-(\d\d) (\d\d):(\d\d):(\d\d)\.(\d{3}) (\.\.\.)?<([0-9a-fA-F]*?)(\.\.\.)?$/;
+const ZEILE = /^(\d{4})-(\d\d)-(\d\d) (\d\d):(\d\d):(\d\d)\.(\d{3}) (\.\.\.)?((?:[<>][0-9a-fA-F]*)+)(\.\.\.)?$/;
+const TEIL = /([<>])([0-9a-fA-F]*)/g;
+
+interface Teil {
+  gesendet: boolean; // '>' ebusd hat gesendet, '<' empfangen
+  hex: string;
+}
 
 export class Rohprotokoll {
   private dekoder = new TextDecoder();
   private puffer = '';
-  private offen: { zeit: number; hex: string; bytes: number } | null = null;
+  private offen: { zeit: number; teile: Teil[]; bytes: number } | null = null;
   unlesbar = 0;
 
   /** Bytes, die noch zu keinem Telegramm wurden: die unvollständige Zeile und eine umgebrochene ohne Fortsetzung. Ab
@@ -127,7 +138,8 @@ export class Rohprotokoll {
     if (!z) return;
     const m = ZEILE.exec(z);
     const zeit = m ? Date.UTC(+m[1]!, +m[2]! - 1, +m[3]!, +m[4]!, +m[5]!, +m[6]!, +m[7]!) : NaN;
-    if (!m || Number.isNaN(zeit) || +m[2]! > 12 || +m[3]! > 31 || m[9]!.length % 2) {
+    const teile = m ? [...m[9]!.matchAll(TEIL)].map((t) => ({ gesendet: t[1] === '>', hex: t[2]! })) : [];
+    if (!m || Number.isNaN(zeit) || +m[2]! > 12 || +m[3]! > 31 || teile.some((t) => t.hex.length % 2)) {
       this.unlesbar++;
       return;
     }
@@ -135,7 +147,7 @@ export class Rohprotokoll {
     const weiter = m[10] !== undefined;
     const bytes = Buffer.byteLength(z) + 1;
     if (fortsetzung && this.offen) {
-      this.offen.hex += m[9];
+      this.offen.teile.push(...teile);
       this.offen.bytes += bytes;
     } else {
       if (this.offen) this.abschliessen(aus);
@@ -143,7 +155,7 @@ export class Rohprotokoll {
         this.unlesbar++; // Fortsetzung ohne Anfang
         return;
       }
-      this.offen = { zeit, hex: m[9]!, bytes };
+      this.offen = { zeit, teile, bytes };
     }
     if (!weiter) this.abschliessen(aus);
   }
@@ -151,6 +163,23 @@ export class Rohprotokoll {
   private abschliessen(aus: Stueck[]): void {
     const o = this.offen!;
     this.offen = null;
-    if (o.hex) aus.push({ zeit: o.zeit, roh: vonHex(o.hex) });
+    // Teile gleicher Richtung hintereinander (Umbruch mitten in einem Teil) gehören zusammen
+    const teile: Teil[] = [];
+    for (const t of o.teile) {
+      const letzter = teile.at(-1);
+      if (letzter && letzter.gesendet === t.gesendet) letzter.hex += t.hex;
+      else teile.push({ ...t });
+    }
+    // Verschluckt nach einem gesendeten CRC 00: entweder nur die Quittung 00 (das Empfangene beginnt nicht mit 00/FF), oder bei
+    // leerer Antwort Quittung, NN und CRC, dann folgt auf den Master-Teil gleich die Quittung 00 von ebusd im selben Teil
+    const [erst, zweit] = teile;
+    if (erst?.gesendet && zweit && !zweit.gesendet && erst.hex.endsWith('00') && !/^(00|ff)/i.test(zweit.hex)) {
+      if (wartetAufQuittung(vonHex(erst.hex))) zweit.hex = `00${zweit.hex}`;
+    } else if (erst?.gesendet && teile.length === 1 && /0000$/.test(erst.hex)) {
+      const master = vonHex(erst.hex.slice(0, -2));
+      if (wartetAufQuittung(master) && !istMaster(master[1]!)) erst.hex = `${erst.hex.slice(0, -2)}00000000`;
+    }
+    const hex = teile.map((t) => t.hex).join('');
+    if (hex) aus.push({ zeit: o.zeit, roh: vonHex(hex) });
   }
 }

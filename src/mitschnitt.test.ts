@@ -7,7 +7,7 @@ import { appendFileSync, mkdtempSync, renameSync, rmSync, truncateSync, writeFil
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Mitschnitt, Rohprotokoll } from './mitschnitt.ts';
-import { hex, vonHex } from './telegramm.ts';
+import { crc8, hex, vonHex, zerlege } from './telegramm.ts';
 
 function ordner(t: { after: (f: () => void) => void }): string {
   const o = mkdtempSync(join(tmpdir(), 'mitschnitt-'));
@@ -112,7 +112,7 @@ test('Rohprotokoll: umgebrochene Zeile wird eins, mit der Zeit der ersten Zeile'
 
 test('Rohprotokoll: Fremdes überspringt es und zählt es', () => {
   const r = new Rohprotokoll();
-  const s = r.fuettere(text(`Unsinn\n2026-11-19 07:28:40.118 >3710\n${ZEILEN[1]}\n2026-13-99 xx <37\n`));
+  const s = r.fuettere(text(`Unsinn\n2026-11-19 07:28:40.118 #3710\n${ZEILEN[1]}\n2026-13-99 xx <37\n`));
   assert.equal(s.length, 1);
   assert.equal(r.unlesbar, 3);
 });
@@ -129,4 +129,77 @@ test('Rohprotokoll: eine umgebrochene Zeile ohne Fortsetzung zählt zum Rest', (
   const r = new Rohprotokoll();
   r.fuettere(text(`${ZEILEN[2]}\n${ZEILEN[3]!.slice(0, 10)}`));
   assert.equal(r.rest, Buffer.byteLength(ZEILEN[2]!) + 1 + 10);
+});
+
+// Seit ebusd senden darf, stehen seine eigenen Telegramme im selben Protokoll: eine Zeile je Telegramm zwischen zwei SYN, die
+// Richtung wechselt mitten in der Zeile, '>' gesendet, '<' empfangen. Das Echo der eigenen Bytes schreibt ebusd nicht mit
+// (ebusd 26.1, src/lib/ebus/protocol.cpp, notifyDeviceData).
+const mitCrc = (h: string) => `${h}${hex([crc8(vonHex(h))])}`.replace(/ /g, '');
+
+test('Rohprotokoll: eigene Anfrage von ebusd und die Antwort der CWL in einer Zeile', () => {
+  const r = new Rohprotokoll();
+  const anfrage = mitCrc('31 3c 40 22 01 01');
+  const antwort = mitCrc('02 00 02');
+  const s = r.fuettere(text(`2026-11-20 10:00:00.000 >${anfrage}<00${antwort}>00\n`));
+  assert.equal(s.length, 1);
+  assert.equal(r.unlesbar, 0);
+  assert.equal(s[0]!.zeit, Date.UTC(2026, 10, 20, 10, 0, 0, 0));
+  const t = zerlege(s[0]!.roh)!;
+  assert.equal(t.qq, 0x31);
+  assert.equal(t.status, 'ok');
+  assert.equal(t.daten, '01');
+  assert.equal(t.antwort, '00 02');
+});
+
+test('Rohprotokoll: umgebrochene eigene Zeile, die Fortsetzung beginnt mit ihrer Richtung', () => {
+  const r = new Rohprotokoll();
+  const anfrage = mitCrc('31 3c 40 50 01 01');
+  const antwort = mitCrc('0a 00 64 00 32 01 2c 00 05 00 64');
+  // Umbruch mitten in der Antwort: die Fortsetzung wiederholt die Richtung '<'; Umbruch am Wechsel: sie beginnt mit '<'
+  const mitten = `2026-11-20 10:00:00.000 >${anfrage}<00${antwort.slice(0, 10)}...\n2026-11-20 10:00:00.001 ...<${antwort.slice(10)}>00\n`;
+  const wechsel = `2026-11-20 10:00:01.000 >${anfrage}...\n2026-11-20 10:00:01.001 ...<00${antwort}>00\n`;
+  const s = r.fuettere(text(mitten + wechsel));
+  assert.equal(s.length, 2);
+  for (const x of s) {
+    const t = zerlege(x.roh)!;
+    assert.equal(t.status, 'ok', hex(x.roh));
+    assert.equal(t.antwort, '00 64 00 32 01 2c 00 05 00 64');
+  }
+});
+
+test('Rohprotokoll: ebusd verschluckt die Quittung 00, wenn sein CRC davor auch 00 war; sie kommt wieder hinein', () => {
+  // notifyDeviceData lässt jedes empfangene Byte weg, das dem zuletzt gesendeten gleicht, nicht nur das Echo
+  let id = 0;
+  while (crc8([0x31, 0x3c, 0x40, 0x22, 0x01, id]) !== 0x00) id++;
+  const anfrage = mitCrc(`31 3c 40 22 01 ${hex([id])}`);
+  assert.match(anfrage, /00$/);
+  const antwort = mitCrc('02 00 07');
+  const r = new Rohprotokoll();
+  const s = r.fuettere(text(`2026-11-20 10:00:00.000 >${anfrage}<${antwort}>00\n`));
+  const t = zerlege(s[0]!.roh)!;
+  assert.equal(t.status, 'ok', hex(s[0]!.roh));
+  assert.equal(t.antwort, '00 07');
+});
+
+test('Rohprotokoll: bei CRC 00 und leerer Antwort verschluckt ebusd Quittung, NN und CRC; auch die kommen wieder hinein', () => {
+  // Mit ebusd 26.1 am nachgebauten Bus gesehen (2026-11-20): '>313c4022019d0000', das letzte 00 ist die Quittung von ebusd.
+  // Eine gültige Antwort nur aus Nullen ist immer leer: ACK 00, NN 00, CRC 00.
+  const r = new Rohprotokoll();
+  const s = r.fuettere(text('2026-11-20 18:04:05.301 >313c4022019d0000\n'));
+  const t = zerlege(s[0]!.roh)!;
+  assert.equal(t.status, 'ok', hex(s[0]!.roh));
+  assert.equal(t.antwort, '');
+  assert.equal(t.daten, '9d');
+});
+
+test('Rohprotokoll: ohne fehlende Quittung bleibt alles, wie es ist (NAK, Rundruf, andere CRC)', () => {
+  const r = new Rohprotokoll();
+  const nak = mitCrc('31 3c 40 22 01 02');
+  const rundruf = mitCrc('31 fe fe 01 0a 45 30 30 30 20 20 20 20 20 20');
+  const s = r.fuettere(text(`2026-11-20 10:00:00.000 >${nak}<ff\n2026-11-20 10:00:01.000 >${rundruf}\n`));
+  assert.equal(zerlege(s[0]!.roh)!.status, 'nak');
+  const b = zerlege(s[1]!.roh)!;
+  assert.equal(b.status, 'ok');
+  assert.equal(b.art, 'rundruf');
+  assert.equal(b.text, 'E000');
 });

@@ -79,7 +79,7 @@ export function segmente(strom: Uint8Array): Uint8Array[] {
 }
 
 /** Entschlüsselt A9 00 → A9 und A9 01 → AA. Ein A9 am Ende oder mit anderem Folgebyte bleibt stehen. */
-function entschluesseln(roh: Uint8Array): number[] {
+export function entschluesseln(roh: Uint8Array): number[] {
   const aus: number[] = [];
   for (let i = 0; i < roh.length; i++) {
     const b = roh[i]!;
@@ -95,6 +95,12 @@ function alsText(daten: number[]): string | null {
   if (!daten.length || !daten.every((b) => b >= 0x20 && b < 0x7f)) return null;
   const t = String.fromCharCode(...daten).trimEnd();
   return t || null;
+}
+
+/** Steht in roh genau ein vollständiger Master-Teil (QQ ZZ PB SB NN, NN Datenbytes, CRC), auf den eine Quittung folgen muss? */
+export function wartetAufQuittung(roh: Uint8Array): boolean {
+  const b = entschluesseln(roh);
+  return b.length >= 6 && b[1] !== RUNDRUF && b[4]! <= 16 && b.length === 5 + b[4]! + 1;
 }
 
 /** Zerlegt, was zwischen zwei SYN stand. null, wenn nichts dazwischen stand. */
