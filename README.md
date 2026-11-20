@@ -1,13 +1,17 @@
 # ebus-service
 
-Schreibt mit, was auf einem eBus passiert, hält jedes Telegramm eine Woche lang vor und zeigt es im Browser.
+Schreibt mit, was auf einem eBus passiert, hält jedes Telegramm eine Woche lang vor und zeigt es im Browser. Dazu geführte
+Versuche: Wer am Gerät steht, startet sie im Browser (auch auf dem Handy), der Dienst fragt über ebusd Werte ab und bittet um
+Handgriffe am Gerät, und alles landet mit Zeit in einem Protokoll, aus dem sich das Protokoll des Geräts entschlüsseln lässt.
 
 Der Dienst liest das Rohprotokoll von [ebusd](https://github.com/john30/ebusd), zerlegt jedes Telegramm (Absender, Empfänger,
-Befehl, Daten, Antwort, Prüfsumme, Quittung), speichert es in SQLite und löscht es nach der eingestellten Zahl Tage. Er sendet
-nichts auf den Bus und spricht nicht mit ebusd; er liest nur dessen Protokolldatei.
+Befehl, Daten, Antwort, Prüfsumme, Quittung), speichert es in SQLite und löscht es nach der eingestellten Zahl Tage. Selbst
+sendet er nie auf den Bus. Nur für Versuche und nur mit `VERSUCHE=an` schickt er Befehle an den Befehlsport von ebusd
+(`read`, `write`, `hex`, wie `ebusctl`); ebusd sendet sie dann.
 
 ```
-eBus-Koppler → ebusd (--readonly, --lograwdata) → raw.log → ebus-service → SQLite → Browser
+eBus-Koppler → ebusd (--lograwdata) → raw.log → ebus-service → SQLite → Browser
+                 ↑ Befehlsport 8888 ← ebus-service (nur Versuche, VERSUCHE=an)
 ```
 
 ## Warum das Rohprotokoll
@@ -22,6 +26,12 @@ dagegen jede Bytefolge zwischen zwei SYN als eigene Zeile, mit Zeit auf die Mill
 2026-11-19 07:29:08.655 <1008b511100102030405060708090a0b0c0d0e0f105500102021222324252627...
 2026-11-19 07:29:08.656 ...<28292a2b2c2d2e2f6600
 ```
+
+Sendet ebusd selbst, steht das Telegramm in derselben Zeile, die Richtung wechselt mittendrin: `>` gesendet, `<` empfangen, zum
+Beispiel `>313c402201019c<000200022e>00` für Anfrage, Antwort des Slaves und Quittung von ebusd. Das Echo der eigenen Bytes
+lässt ebusd weg, und dabei jedes empfangene Byte, das dem zuletzt gesendeten gleicht: Ist das CRC einer Anfrage `00`, fehlt die
+Quittung `00` des Slaves, bei leerer Antwort auch deren NN und CRC (`>313c4022019d0000`). Beides füllt ebus-service wieder auf
+(ebusd 26.1, `src/lib/ebus/protocol.cpp`, `notifyDeviceData`; am nachgebauten Bus mit dem echten ebusd geprüft).
 
 Nach 64 Hex-Zeichen bricht ebusd um, ab `--lograwdatasize` kB wird die Datei zu `.old`. ebus-service fügt umgebrochene Zeilen
 zusammen, folgt dem Dateiwechsel und merkt sich die Lesestelle in der Datenbank: Nach einem Neustart liest er dort weiter, nichts
@@ -66,6 +76,9 @@ volumes:
 
 Dann `http://127.0.0.1:3010`. Für den Betrieb das Image auf einen Commit festlegen statt den Zweig zu bauen.
 
+So hört ebusd nur zu. Für Versuche bei ebusd `EBUSD_READONLY` weglassen (und `EBUSD_ENABLEHEX: ""` fürs Abtasten), bei
+ebus-service `EBUSD: "ebusd:8888"` und `VERSUCHE: "an"` setzen; der Befehlsport bleibt im Compose-Netz, ohne `ports:`.
+
 ## Einstellungen
 
 | Variable | Vorgabe | Bedeutung |
@@ -77,6 +90,10 @@ Dann `http://127.0.0.1:3010`. Für den Betrieb das Image auf einen Commit festle
 | `TITEL` | `eBus` | steht im Kopf der Seite |
 | `TEILNEHMER` | leer | Namen für Adressen, z. B. `37=Lüftung,3c=Lüftung,fe=alle` |
 | `HOST`, `PORT` | `0.0.0.0`, `3000` | im Container |
+| `EBUSD` | leer | Befehlsport von ebusd als `HOST:PORT`, z. B. `ebusd:8888`; leer = keine Versuche |
+| `VERSUCHE` | `aus` | `an` schaltet die Knöpfe für Versuche frei (braucht `EBUSD`) |
+| `KREIS` | `excellent` | Circuit der Definition in ebusd (`read -c KREIS NAME`) |
+| `CWL` | `3c` | Slave-Adresse des Geräts für `hex` beim Abtasten |
 
 Die Zeiten stammen von ebusd und gelten als UTC (so schreibt das Image von ebusd ohne gesetzte Zeitzone).
 
@@ -93,9 +110,30 @@ hinzufügen.
 | `/api/uebersicht` | je Absender, Empfänger und Befehl: Anzahl, erstes und letztes Mal, letzte Daten |
 | `/api/verlauf` | Anzahl je Stunde |
 | `/api/status` | Anzahl, ältestes, neuestes, ob gerade Telegramme kommen, Einstellungen für die Oberfläche |
+| `/api/versuche` | ob Versuche erlaubt sind, die Liste, der laufende oder letzte Lauf (Schritt, Werte, letzte Ereignisse), Zustand von ebusd (`state`) |
+| `POST /api/versuche/start` | `{"versuch": "bestand"}` startet; höchstens einer zur Zeit |
+| `POST /api/versuche/weiter` | `{"lauf": 1, "schritt": 3, "notiz": "…"}` bestätigt genau diesen Schritt; ein zweites Tippen zählt nicht |
+| `POST /api/versuche/abbrechen` | `{"lauf": 1}`; was der Versuch verstellt hat, stellt er zurück |
+| `/api/laeufe` | alle Läufe, neueste zuerst |
+| `/api/laeufe/<id>` | das Protokoll eines Laufs: Lauf, Ereignisse, alle Telegramme von 2 min davor bis 2 min danach; `?download` als Datei |
 | `/gesund` | `ok`, für den Healthcheck |
 
-Nur `GET` und `HEAD`. Eine Anmeldung gibt es nicht: Wer den Dienst erreichen darf, regelt der Reverse Proxy davor.
+Lesen per `GET` und `HEAD`, ohne Anmeldung: Wer den Dienst erreichen darf, regelt der Reverse Proxy davor. `POST` nur für die
+Versuche, nur mit `VERSUCHE=an`, nur als JSON und nur von derselben Herkunft (`Origin`, `Sec-Fetch-Site`): Eine fremde Seite im
+selben Browser bräuchte für JSON eine CORS-Vorabfrage, die der Dienst nie erlaubt.
+
+## Versuche
+
+Ein Versuch läuft im Dienst, nicht im Browser: Sperrt sich das Handy, läuft er weiter, und die Seite zeigt beim Aufwachen den
+aktuellen Schritt. Er liest Werte (`read -f`), bittet um Handgriffe am Gerät und wartet auf „Erledigt“, liest in Wartezeiten
+alle paar Sekunden weiter und hält jede Anfrage, Antwort und Notiz als Ereignis fest. Telegramme aus der Zeit eines Laufs (mit
+2 Minuten Rand) löscht das Aufräumen nicht.
+
+Für die Wolf CWL Excellent ([`src/cwl-versuche.ts`](src/cwl-versuche.ts)): Bestandsaufnahme (alle Lesebefehle der Definition),
+Stufe am Gerät (0 bis 3 von Hand), Stufe per eBus (`SetFanMode High`, warten bis die CWL zurückfällt, dann den Ausgangswert),
+Filter quittieren (von Hand am Gerät, die App liest davor und danach) und Unbekanntes abtasten (`hex` an `40 22 xx` und
+`40 50 xx`, braucht `--enablehex`). Geschrieben wird nur `SetFanMode` mit Holiday, Reduced, Normal oder High, `hex` nur an das
+Gerät mit `40 22`/`40 50` und einer Kennung ([`src/versuche.ts`](src/versuche.ts), `SCHREIBBAR`).
 
 ## eBus in Kürze
 
@@ -124,11 +162,16 @@ PROTOKOLL=/tmp/raw.log DATENBANK=/tmp/ebus.db DEFINITIONEN=. PORT=3010 npm start
 Zum Ausprobieren ohne Bus Zeilen wie oben an `/tmp/raw.log` anhängen. Typen prüft `tsc -p .` (TypeScript 5.9 mit `@types/node`
 24), das gehört nicht zum Image.
 
+[`src/ebusd-echt.test.ts`](src/ebusd-echt.test.ts) startet das echte ebusd in Docker an einem nachgebauten Bus
+([`werkzeug/busnachbau.ts`](werkzeug/busnachbau.ts): Echo, SYN alle 45 ms, ein Slave, der antwortet, was der Test vorgibt) und
+prüft, was `read`, `write` und `hex` liefern und wie das Rohprotokoll dann aussieht. Ohne Docker oder ohne das Image
+(`EBUSD_IMAGE`, Vorgabe v26.1) wird er übersprungen.
+
 ## Geschichte
 
 2018 als Java-Dienst begonnen (Spring Boot, serielle Schnittstelle über RXTX, Datenpunkte des Wolf ISM8), nie fertig geworden.
-2026 neu geschrieben: ebusd übernimmt den Bus, dieser Dienst nur das Mitschreiben und Anzeigen. Der alte Stand liegt in der
-Git-Geschichte.
+2026 neu geschrieben: ebusd übernimmt den Bus, dieser Dienst das Mitschreiben und Anzeigen, seit 2026-11-20 auch geführte Versuche
+für die aktive Kommunikation. Der alte Stand liegt in der Git-Geschichte.
 
 ## Lizenz
 

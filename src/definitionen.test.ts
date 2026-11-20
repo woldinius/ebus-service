@@ -39,3 +39,7 @@ test('eBus-Standarddienste ohne Definition', () => {
     'Rundruf einer Wolf CWL alle 10 Minuten, 40 = Hersteller ENCON');
   assert.equal(d.finde(tel('37 5a 40 a0 04 00 32 00 32 4f')), null);
 });
+
+test('Lesebefehle in der Reihenfolge der Datei, ohne Schreibbefehle', () => {
+  assert.deepEqual(Definitionen.ausCsv(CSV).lesbar, ['RequestErrorList', 'FanMode', 'SettingInletFlow']);
+});

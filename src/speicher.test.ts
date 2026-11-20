@@ -127,3 +127,55 @@ test('alsEinheit: alles oder nichts', () => {
   s.alsEinheit(() => s.speichere(T0, AN_5A));
   assert.equal(s.liste({}).length, 1);
 });
+
+// Versuche (seit 2026-11-20): Läufe mit ihren Ereignissen, damit sich die aktive Kommunikation danach auswerten lässt
+test('Läufe und Ereignisse: anlegen, beenden, in Reihenfolge lesen', () => {
+  const s = new Speicher(':memory:');
+  const id = s.neuerLauf('bestand', 'Bestandsaufnahme', T0);
+  s.ereignis(id, { zeit: T0 + 1, art: 'schritt', text: 'Anzeige ablesen' });
+  s.ereignis(id, { zeit: T0 + 2, art: 'lesen', text: 'FanMode', befehl: 'read -f -c excellent FanMode', antwort: 'Normal', ok: true, ms: 80 });
+  s.ereignis(id, { zeit: T0 + 3, art: 'lesen', text: 'Gibtsnicht', befehl: 'read …', antwort: 'ERR: element not found', ok: false, ms: 5 });
+  assert.deepEqual(s.lauf(id), { id, versuch: 'bestand', titel: 'Bestandsaufnahme', start: T0, ende: null, status: 'laeuft', fehler: null });
+  s.beendeLauf(id, T0 + 10, 'fertig');
+  assert.equal(s.lauf(id)!.status, 'fertig');
+  assert.equal(s.lauf(id)!.ende, T0 + 10);
+  const e = s.ereignisse(id);
+  assert.deepEqual(e.map((x) => x.art), ['schritt', 'lesen', 'lesen']);
+  assert.equal(e[1]!.antwort, 'Normal');
+  assert.equal(e[1]!.ok, true);
+  assert.equal(e[2]!.ok, false);
+  assert.equal(e[0]!.ok, null);
+  assert.equal(s.lauf(999), null);
+});
+
+test('Liste der Läufe, neueste zuerst; nach einem Neustart gilt ein laufender als unterbrochen', () => {
+  const s = new Speicher(':memory:');
+  const a = s.neuerLauf('bestand', 'Bestandsaufnahme', T0);
+  s.beendeLauf(a, T0 + 5, 'abgebrochen');
+  const b = s.neuerLauf('filter', 'Filter quittieren', T0 + 10);
+  assert.deepEqual(s.laeufe().map((l) => l.id), [b, a]);
+  assert.equal(s.unterbrochen(T0 + 20), 1);
+  assert.deepEqual([s.lauf(b)!.status, s.lauf(b)!.ende], ['unterbrochen', T0 + 20]);
+  assert.equal(s.lauf(a)!.status, 'abgebrochen');
+});
+
+test('Telegramme aus der Zeit eines Versuchs bleiben über die 7 Tage hinaus, mit 2 Minuten Rand', () => {
+  const s = new Speicher(':memory:');
+  const id = s.neuerLauf('stufe-geraet', 'Stufe am Gerät', T0);
+  s.beendeLauf(id, T0 + 600_000, 'fertig');
+  s.speichere(T0 - 300_000, AN_5A); // davor, außerhalb des Rands
+  s.speichere(T0 - 60_000, AN_5A); // im Rand davor
+  s.speichere(T0 + 300_000, AN_5B); // mittendrin
+  s.speichere(T0 + 660_000, FEHLER); // im Rand danach
+  s.speichere(T0 + 900_000, FEHLER); // danach, außerhalb
+  assert.equal(s.aufraeumen(T0 + 8 * TAG, 7), 2);
+  assert.deepEqual(s.telegrammeZwischen(T0 - 120_000, T0 + 720_000).map((t) => t.zeit), [T0 - 60_000, T0 + 300_000, T0 + 660_000],
+    'aufsteigend nach Zeit');
+});
+
+test('ein noch laufender Versuch schützt seine Telegramme bis jetzt', () => {
+  const s = new Speicher(':memory:');
+  s.neuerLauf('stufe-ebus', 'Stufe per eBus', T0);
+  s.speichere(T0 + 1000, AN_5A);
+  assert.equal(s.aufraeumen(T0 + 8 * TAG, 7), 0);
+});

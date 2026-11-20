@@ -12,6 +12,7 @@
   <link rel="apple-touch-icon" href="icon.png">
   <link rel="stylesheet" href="style.css">
   <script type="module" src="app.js"></script>
+  <script type="module" src="versuche.js"></script>
 </head>
 <body>
   <header>
@@ -20,6 +21,46 @@
   </header>
 
   <main>
+    <section aria-labelledby="t-versuche" id="versuche" class="versuche-bereich">
+      <h2 id="t-versuche">Versuche <span class="leise" id="ebusd-lage"></span></h2>
+
+      <div id="lauf" class="lauf" hidden>
+        <p class="lauf-kopf"><strong id="lauf-titel"></strong><br><span id="lauf-status" class="leise"></span></p>
+        <p id="schritt-text" class="schritt" aria-live="polite"></p>
+        <p id="schritt-zeit" class="leise klein"></p>
+        <progress id="schritt-fortschritt" hidden></progress>
+        <p id="lauf-meldung" class="fehler" role="alert" hidden></p>
+        <form id="schritt-form">
+          <div id="notiz-feld">
+            <label for="notiz" id="notiz-label">Notiz (optional)</label>
+            <textarea id="notiz" rows="2" maxlength="2000" autocomplete="off"></textarea>
+          </div>
+          <div class="knoepfe">
+            <button type="submit" id="weiter" class="haupt">Erledigt</button>
+            <button type="button" id="abbrechen" class="gefahr">Abbrechen</button>
+          </div>
+        </form>
+        <p id="lauf-ende" class="knoepfe" hidden>
+          <a id="protokoll-link" class="knopf" href="#">Protokoll herunterladen</a>
+          <button type="button" id="schliessen">Schließen</button>
+        </p>
+        <div id="werte-box" class="rollen" hidden>
+          <h3>Zuletzt gelesen</h3>
+          <table id="werte"><tbody></tbody></table>
+        </div>
+        <h3>Ereignisse</h3>
+        <ol id="ereignisse" class="ereignisse"></ol>
+      </div>
+
+      <p id="versuche-aus" class="hinweis" hidden>Versuchsbetrieb ist aus: Die Knöpfe gehen erst, wenn er auf dem Server eingeschaltet
+        ist (VERSUCHE=an).</p>
+      <ul id="versuch-liste" class="versuch-liste"></ul>
+      <details id="laeufe-box" hidden>
+        <summary>Frühere Läufe, je mit Protokoll</summary>
+        <ul id="laeufe" class="laeufe"></ul>
+      </details>
+    </section>
+
     <section aria-labelledby="t-verlauf">
       <h2 id="t-verlauf">Telegramme je Stunde <span class="leise" id="verlauf-summe"></span></h2>
       <div id="verlauf" class="verlauf" role="img" aria-label="Telegramme je Stunde der letzten 7 Tage"></div>
@@ -76,7 +117,8 @@
   </main>
 
   <footer>
-    <p class="leise">Nur lesend mitgeschnitten über ebusd. Aufbewahrt werden <span id="tage">7</span> Tage, Älteres löscht der Dienst selbst.</p>
+    <p class="leise">Mitgeschnitten über ebusd. Aufbewahrt werden <span id="tage">7</span> Tage, Älteres löscht der Dienst selbst;
+      Telegramme aus der Zeit eines Versuchs bleiben mit dessen Protokoll.</p>
   </footer>
 </body>
 </html>

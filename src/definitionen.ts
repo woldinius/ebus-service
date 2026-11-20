@@ -11,6 +11,8 @@ export interface Treffer {
 interface Eintrag extends Treffer {
   pbsb: string;
   id: string; // Hex ohne Leerzeichen, kann leer sein
+  lesen?: boolean; // Lesebefehl (Typ r…), den ebusd mit read abfragen kann
+  nr?: number; // Zeile in der Datei
 }
 
 // Allgemeine eBus-Dienste, die ohne Definition einen Namen bekommen (Anwendungsschicht der eBUS-Spezifikation)
@@ -31,6 +33,11 @@ export class Definitionen {
     return this.eintraege.length - STANDARD.length;
   }
 
+  /** Namen der Lesebefehle in der Reihenfolge der Datei, ohne doppelte (für read -c KREIS NAME). */
+  get lesbar(): string[] {
+    return [...new Set(this.eintraege.toSorted((a, b) => (a.nr ?? 0) - (b.nr ?? 0)).filter((e) => e.lesen).map((e) => e.name))];
+  }
+
   static ausCsv(csv: string): Definitionen {
     const eintraege: Eintrag[] = [];
     for (const zeile of csv.split(/\r?\n/)) {
@@ -38,7 +45,9 @@ export class Definitionen {
       const f = zeile.split(',');
       const [typ, , , name, kommentar, , , pbsb, id] = f;
       if (!typ || !name || !pbsb || !/^[rwu]/.test(typ) || !/^[0-9a-fA-F]{4}$/.test(pbsb)) continue;
-      eintraege.push({ name, kommentar: kommentar ?? '', pbsb: pbsb.toLowerCase(), id: (id ?? '').toLowerCase() });
+      eintraege.push({
+        name, kommentar: kommentar ?? '', pbsb: pbsb.toLowerCase(), id: (id ?? '').toLowerCase(), lesen: typ.startsWith('r'), nr: eintraege.length,
+      });
     }
     return new Definitionen(eintraege);
   }

@@ -1,5 +1,7 @@
 // Speicher für die mitgelesenen Telegramme: eine SQLite-Datei, Zeit in Millisekunden seit 1970 (UTC).
 // Aufbewahrt wird eine feste Zahl Tage (Standard 7), aufgeräumt per aufraeumen(), das main.ts regelmäßig aufruft.
+// Dazu die Läufe der Versuche mit ihren Ereignissen (was gefragt, gesendet, beantwortet, am Gerät getan wurde). Läufe bleiben, bis
+// jemand die Datei löscht; Telegramme aus ihrer Zeit (mit RAND davor und danach) löscht aufraeumen() nicht.
 import { DatabaseSync, type SQLInputValue } from 'node:sqlite';
 import type { Status, Telegramm } from './telegramm.ts';
 
@@ -52,7 +54,65 @@ create table if not exists telegramme (
 create index if not exists telegramme_zeit on telegramme (zeit);
 create index if not exists telegramme_nachricht on telegramme (qq, zz, pbsb, zeit);
 create table if not exists zustand (schluessel text primary key, wert text not null);
+create table if not exists laeufe (
+  id integer primary key,
+  versuch text not null,
+  titel text not null,
+  start integer not null,
+  ende integer,
+  status text not null,
+  fehler text
+);
+create table if not exists ereignisse (
+  id integer primary key,
+  lauf integer not null references laeufe (id),
+  zeit integer not null,
+  art text not null,
+  text text,
+  befehl text,
+  antwort text,
+  ok integer,
+  ms integer
+);
+create index if not exists ereignisse_lauf on ereignisse (lauf, id);
 `;
+
+export type LaufStatus = 'laeuft' | 'fertig' | 'abgebrochen' | 'fehler' | 'unterbrochen';
+
+export interface LaufZeile {
+  id: number;
+  versuch: string;
+  titel: string;
+  start: number;
+  ende: number | null;
+  status: LaufStatus;
+  fehler: string | null;
+}
+
+export interface NeuesEreignis {
+  zeit: number;
+  art: string; // schritt, lesen, schreiben, hex, erledigt, eingabe, weiter, notiz, fehler, abbruch
+  text?: string | null;
+  befehl?: string | null;
+  antwort?: string | null;
+  ok?: boolean | null;
+  ms?: number | null;
+}
+
+export interface Ereignis {
+  id: number;
+  lauf: number;
+  zeit: number;
+  art: string;
+  text: string | null;
+  befehl: string | null;
+  antwort: string | null;
+  ok: boolean | null;
+  ms: number | null;
+}
+
+/** So viel vor dem Start und nach dem Ende eines Laufs bleiben die Telegramme mit ihm erhalten */
+export const RAND = 120_000;
 
 const SPALTEN = 'id, zeit, roh, qq, zz, pbsb, daten, antwort, text, art, status, name';
 const MAX_GRENZE = 5000;
@@ -140,10 +200,61 @@ export class Speicher {
     }
   }
 
-  /** Löscht alles, was älter als `tage` Tage vor `jetzt` ist. Gibt die Zahl gelöschter Telegramme zurück. */
+  /** Löscht alles, was älter als `tage` Tage vor `jetzt` ist, außer aus der Zeit eines Laufs. Gibt die Zahl gelöschter Telegramme zurück. */
   aufraeumen(jetzt: number, tage: number): number {
-    const r = this.db.prepare('delete from telegramme where zeit < ?').run(jetzt - tage * 86_400_000);
+    const r = this.db
+      .prepare(
+        `delete from telegramme where zeit < ? and not exists (
+           select 1 from laeufe l where telegramme.zeit between l.start - ? and coalesce(l.ende, ?) + ?)`,
+      )
+      .run(jetzt - tage * 86_400_000, RAND, jetzt, RAND);
     return Number(r.changes);
+  }
+
+  /** Alle Telegramme zwischen von und bis, aufsteigend nach Zeit (für das Protokoll eines Laufs). */
+  telegrammeZwischen(von: number, bis: number): Eintrag[] {
+    const sql = `select ${SPALTEN} from telegramme where zeit between ? and ? order by zeit, id limit 200000`;
+    return einfach(this.db.prepare(sql).all(von, bis)) as Eintrag[];
+  }
+
+  neuerLauf(versuch: string, titel: string, start: number): number {
+    const r = this.db.prepare("insert into laeufe (versuch, titel, start, status) values (?, ?, ?, 'laeuft')").run(versuch, titel, start);
+    return Number(r.lastInsertRowid);
+  }
+
+  beendeLauf(id: number, ende: number, status: LaufStatus, fehler: string | null = null): void {
+    this.db.prepare('update laeufe set ende = ?, status = ?, fehler = ? where id = ?').run(ende, status, fehler, id);
+  }
+
+  /** Läufe, die beim letzten Ende des Dienstes noch liefen, gelten als unterbrochen. */
+  unterbrochen(jetzt: number): number {
+    return Number(this.db.prepare("update laeufe set ende = ?, status = 'unterbrochen' where status = 'laeuft'").run(jetzt).changes);
+  }
+
+  lauf(id: number): LaufZeile | null {
+    const z = this.db.prepare('select id, versuch, titel, start, ende, status, fehler from laeufe where id = ?').get(id);
+    return z ? ({ ...z } as unknown as LaufZeile) : null;
+  }
+
+  laeufe(grenze = 100): LaufZeile[] {
+    const sql = 'select id, versuch, titel, start, ende, status, fehler from laeufe order by start desc, id desc limit ?';
+    return einfach(this.db.prepare(sql).all(grenze)) as LaufZeile[];
+  }
+
+  ereignis(lauf: number, e: NeuesEreignis): number {
+    const ok = e.ok === undefined || e.ok === null ? null : e.ok ? 1 : 0;
+    const r = this.db
+      .prepare('insert into ereignisse (lauf, zeit, art, text, befehl, antwort, ok, ms) values (?, ?, ?, ?, ?, ?, ?, ?)')
+      .run(lauf, e.zeit, e.art, e.text ?? null, e.befehl ?? null, e.antwort ?? null, ok, e.ms ?? null);
+    return Number(r.lastInsertRowid);
+  }
+
+  ereignisse(lauf: number): Ereignis[] {
+    const sql = 'select id, lauf, zeit, art, text, befehl, antwort, ok, ms from ereignisse where lauf = ? order by id';
+    return this.db
+      .prepare(sql)
+      .all(lauf)
+      .map((z) => ({ ...z, ok: z.ok === null ? null : z.ok === 1 }) as unknown as Ereignis);
   }
 }
 
