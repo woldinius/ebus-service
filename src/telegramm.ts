@@ -3,7 +3,7 @@
 //   - SYN AA trennt die Telegramme; in Daten wird A9 zu A9 00 und AA zu A9 01 (5.1)
 //   - Master-Master: QQ ZZ PB SB NN DB… CRC, dann ACK des Empfängers (4.1)
 //   - Master-Slave:  dasselbe, nach dem ACK antwortet der Slave mit NN DB… CRC, dann ACK des Masters (4.2)
-//   - Rundruf an FE: ohne ACK (4.3); NN höchstens 16 (5.6); ACK 00, NAK FF (5.8)
+//   - Rundruf an FE: ohne ACK (4.3); NN höchstens 16 (5.6), bei Antworten des Slaves nicht geprüft (Wolf CWL: 18); ACK 00, NAK FF (5.8)
 //   - CRC-8 mit x⁸+x⁷+x⁴+x³+x+1 (0x9B) über die expandierte Folge (5.7, 7.2), gerechnet wie ebusd: crc = T[crc] ^ byte
 //   - Master-Adresse: beide Halbbytes aus 0, 1, 3, 7, F; ihr Slave liegt 5 darüber, FF hat 04 (4.1.1)
 
@@ -128,8 +128,10 @@ export function zerlege(roh: Uint8Array): Telegramm | null {
 
   i++;
   if (i >= b.length) return t;
+  // Die Antwort darf länger sein als die 16 Bytes der Spezifikation: Die Wolf CWL schickt auf 40 90 achtzehn, ebusd nimmt sie an.
+  // Ob sie stimmt, sagt die CRC.
   const nn2 = b[i]!;
-  if (nn2 > 16 || b.length < i + 1 + nn2 + 1) return t;
+  if (b.length < i + 1 + nn2 + 1) return t;
   const antwort = b.slice(i + 1, i + 1 + nn2);
   t.antwort = hex(antwort);
   if (crc8(b.slice(i, i + 1 + nn2)) !== b[i + 1 + nn2]) return { ...t, status: 'crc-fehler' };

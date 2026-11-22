@@ -52,6 +52,17 @@ test('Master an Slave mit Antwort, AA in der Antwort escaped', () => {
   assert.equal(t.antwort, 'aa 05');
 });
 
+test('Antwort mit mehr als 16 Bytes: die CWL schickt auf 40 90 achtzehn, die CRC entscheidet', () => {
+  // echt, 2026-11-22: ebusd fragt RequestErrorList, die CWL antwortet mit NN 12, die Spezifikation erlaubt nur 16 (5.6)
+  const t = zerlege(vonHex(`31 3c 40 90 00 27 00 12 07 ${'00 '.repeat(17)}40 00`));
+  assert.ok(t);
+  assert.equal(t.status, 'ok');
+  assert.equal(t.antwort, `07${' 00'.repeat(17)}`);
+  assert.equal(zerlege(vonHex(`31 3c 40 90 00 27 00 12 07 ${'00 '.repeat(17)}41 00`))?.status, 'crc-fehler');
+  // echt, 2026-11-22: in der Antwort fehlt ein 00, ebusd wartet darauf und meldet "read timeout"
+  assert.equal(zerlege(vonHex('31 3c 40 50 01 2a d7 00 0a 00 00 00 00 7f ff 00 00 00 02'))?.status, 'unvollstaendig');
+});
+
 test('Master an Master: nur die Quittung, keine Antwortdaten', () => {
   const t = zerlege(vonHex('37 10 07 04 00 22 00'));
   assert.ok(t);
