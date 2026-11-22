@@ -8,7 +8,8 @@ import { Versuchsleiter, VersuchFehler, type Kontext, type LaufLage, type Versuc
 
 const LESBAR = [...new Set([...STUFE, ...FILTER, 'FlowMode0', 'FlowMode1', 'FlowMode2', 'FlowMode3', 'InsideTemperature', 'OutsideTemperature'])];
 
-/** Antwortet wie ebusd mit der Definition der CWL. Nach SetFanMode High hält sie die Stufe für `haelt` Lesungen von FanMode. */
+/** Antwortet wie ebusd mit der Definition der CWL. Nach SetFanMode High hält sie die Stufe für `haelt` Lesungen von FanMode,
+ * SetFanModeAlt bleibt (wie laut Definition beim Bedienteil), bis jemand etwas anderes schreibt. */
 class NachgebauteCwl implements Befehle {
   zeilen: string[] = [];
   modus = 'Normal';
@@ -24,6 +25,10 @@ class NachgebauteCwl implements Befehle {
     } else if ((m = /^write -c excellent SetFanMode (\w+)$/.exec(z))) {
       this.modus = m[1]!;
       this.hoch = 0;
+      text = 'done';
+    } else if ((m = /^write -c excellent SetFanModeAlt (\w+)$/.exec(z))) {
+      this.modus = m[1]!;
+      this.hoch = -Infinity; // fällt nicht zurück
       text = 'done';
     } else if (z.startsWith('hex ')) text = z.endsWith('01') ? '020002' : 'ERR: NAK received';
     else if (!z.startsWith('read -f -c excellent ')) text = 'ERR: command not found';
@@ -108,6 +113,45 @@ test('Stufe per eBus abgebrochen, während die CWL noch auf High steht: der Ausg
   assert.ok(arten.lastIndexOf('abbruch') < arten.lastIndexOf('schreiben'), 'erst der Abbruch, dann das Zurückstellen');
 });
 
+test('Stufe wie das Bedienteil: schreibt SetFanModeAlt High, beobachtet, stellt am Ende den Ausgangswert ein', async () => {
+  const { l, cwl, speicher } = leiter();
+  const lage = await fahre(l, 'stufe-bedienteil', { notizen: ['', 'Stufe 3', 'folgt', 'wieder 2, Tasten gehen'] });
+  assert.equal(lage.status, 'fertig', lage.fehler ?? '');
+  assert.deepEqual(cwl.zeilen.filter((z) => z.startsWith('write ')), [
+    'write -c excellent SetFanModeAlt High', 'write -c excellent SetFanModeAlt Normal',
+  ]);
+  assert.equal(cwl.modus, 'Normal');
+  const e = speicher.ereignisse(lage.id);
+  assert.ok(e.some((x) => x.art === 'notiz' && x.text === 'Ausgang: FanMode Normal'));
+  const arten = e.map((x) => x.art);
+  assert.ok(arten.lastIndexOf('schreiben') < arten.lastIndexOf('erledigt'), 'erst zurückstellen, dann am Gerät nachsehen');
+  assert.ok(e.filter((x) => x.art === 'erledigt').length >= 3, 'Anzeige nach dem Schalten, Taste am Gerät, Anzeige am Ende');
+});
+
+test('Stufe wie das Bedienteil abgebrochen: der Ausgangswert kommt zurück, ohne Schreiben vorher auch kein Zurück', async () => {
+  const { l, cwl } = leiter();
+  const lage = await fahre(l, 'stufe-bedienteil', { abbrechenBei: /bleibt/ });
+  assert.equal(lage.status, 'abgebrochen');
+  assert.deepEqual(cwl.zeilen.filter((z) => z.startsWith('write ')), [
+    'write -c excellent SetFanModeAlt High', 'write -c excellent SetFanModeAlt Normal',
+  ]);
+  const vorher = leiter();
+  const früh = await fahre(vorher.l, 'stufe-bedienteil', { abbrechenBei: /Gleich schaltet/ });
+  assert.equal(früh.status, 'abgebrochen');
+  assert.deepEqual(vorher.cwl.zeilen.filter((z) => z.startsWith('write ')), [], 'abgebrochen, bevor geschaltet wurde');
+});
+
+test('Stufe wie das Bedienteil: Ist der Ausgang nicht setzbar (Auto) oder nicht lesbar, schreibt der Versuch gar nicht', async () => {
+  for (const modus of ['Auto', 'ERR: read timeout']) {
+    const { l, cwl, speicher } = leiter();
+    cwl.modus = modus;
+    const lage = await fahre(l, 'stufe-bedienteil');
+    assert.equal(lage.status, 'fertig', modus);
+    assert.deepEqual(cwl.zeilen.filter((z) => z.startsWith('write ')), [], modus);
+    assert.ok(speicher.ereignisse(lage.id).some((x) => x.art === 'notiz' && /schreibt nichts/.test(x.text ?? '')), modus);
+  }
+});
+
 test('Filter quittieren: nur lesen, nie schreiben; die Warnung steht vor dem Start', async () => {
   const { l, cwl } = leiter();
   assert.match(l.liste().find((v) => v.id === 'filter')!.einmalig!, /nur einmal/);
@@ -159,7 +203,7 @@ test('ein zweites Tippen auf einen alten Schritt überspringt nichts', async () 
 test('Schreiben oder hex außerhalb der Freigabe: Lauf endet mit Fehler, auf den Bus geht nichts', async () => {
   for (const [name, f] of [
     ['quittieren', (k) => k.schreibe('ResetNotifications', 'Filter')],
-    ['Stufe dauerhaft', (k) => k.schreibe('SetFanModeAlt', 'High')],
+    ['Stufe Auto', (k) => k.schreibe('SetFanModeAlt', 'Auto')],
     ['Wert außerhalb', (k) => k.schreibe('SetFanMode', 'Auto')],
     ['Parameter schreiben', (k) => k.hex('3c408001')],
     ['anderes Gerät', (k) => k.hex('5a40220101')],

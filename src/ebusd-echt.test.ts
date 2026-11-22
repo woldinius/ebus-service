@@ -29,6 +29,7 @@ r,,,InletFlow,Tatsächliche Zuluftmenge,,,4022,0b,value,,UIR,,m³/h,
 r,,,InsideTemperature,Ablufttemperatur,,,4022,07,value,,SIR,10,°C,
 r,,,FilterStatus,Filter verdreckt,,,4022,18,value,,UIR,0=no;1=yes,,
 w,,,SetFanMode,Ventilatorbetrieb,,,40a1,,value,,ULR,0=Holiday;65537=Reduced;131074=Normal;196611=High,,Temporary settings which resets after few minutes
+w,,,SetFanModeAlt,VentilatorbetriebAlternative,,,40cb,0101,value,,UIR,0=Holiday;1=Reduced;2=Normal;3=High,,Does not reset after one minute with Sky300 with latest SW; this message is sent by Brink AirControl wall panel
 `;
 
 /** Startet ebusd im Container an einem nachgebauten Bus mit der CWL auf 3c. */
@@ -82,7 +83,8 @@ const CWL: Antworter = (a) => {
   }
   if (a.pbsb === '4050' && a.daten === '22') return [0x00, 0x5a, 0x00, 0x00, 0x01, 0x6d, 0x00, 0x01, 0x00, 0x5a];
   if (a.pbsb === '4050' && parseInt(a.daten, 16) === CRC_NULL_LEER) return [];
-  if (a.pbsb === '40a1') return [];
+  if (a.pbsb === '40a1') return [0x22, 0x00]; // so antwortete die echte CWL am 2026-11-22
+  if (a.pbsb === '40cb') return [];
   return null;
 };
 
@@ -97,6 +99,10 @@ test('echtes ebusd: read, write und hex, wie sie die Versuche brauchen, und das 
     assert.equal(await r('write -c excellent SetFanMode High'), 'done');
     assert.deepEqual(anfragen.find((a) => a.pbsb === '40a1'), { qq: 0x31, zz: 0x3c, pbsb: '40a1', daten: '00 03 00 03' },
       'High = 196611 = 00 03 00 03 (ULR, höchstes Byte zuerst)');
+    assert.equal(await r('write -c excellent SetFanModeAlt High'), 'done');
+    assert.equal(await r('write -c excellent SetFanModeAlt Holiday'), 'done');
+    assert.deepEqual(anfragen.filter((a) => a.pbsb === '40cb').map((a) => a.daten), ['01 01 00 03', '01 01 00 00'],
+      'Kennung 01 01, dann der Wert als UIR, höchstes Byte zuerst');
     assert.equal(await r('hex 3c40220101'), '020002', 'hex liefert die Antwort mit NN');
     assert.equal(await r('hex 3c40220199'), 'ERR: NAK received');
     assert.equal(await r(`hex 3c402201${hex([CRC_NULL])}`), '020007');
@@ -112,7 +118,8 @@ test('echtes ebusd: read, write und hex, wie sie die Versuche brauchen, und das 
     const finde = (pbsb: string, daten: string) => von31.find((x) => x.pbsb === pbsb && x.daten === daten);
     assert.deepEqual([finde('4022', '01')?.status, finde('4022', '01')?.antwort], ['ok', '00 02'], protokoll());
     assert.equal(finde('4050', '22')?.antwort, '00 5a 00 00 01 6d 00 01 00 5a');
-    assert.deepEqual([finde('40a1', '00 03 00 03')?.status, finde('40a1', '00 03 00 03')?.antwort], ['ok', '']);
+    assert.deepEqual([finde('40a1', '00 03 00 03')?.status, finde('40a1', '00 03 00 03')?.antwort], ['ok', '22 00']);
+    assert.deepEqual([finde('40cb', '01 01 00 03')?.status, finde('40cb', '01 01 00 03')?.antwort], ['ok', '']);
     assert.equal(finde('4022', '99')?.status, 'nak');
     assert.deepEqual([finde('4022', hex([CRC_NULL]))?.status, finde('4022', hex([CRC_NULL]))?.antwort], ['ok', '00 07'], protokoll());
     assert.deepEqual([finde('4050', hex([CRC_NULL_LEER]))?.status, finde('4050', hex([CRC_NULL_LEER]))?.antwort], ['ok', ''], protokoll());

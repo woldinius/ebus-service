@@ -68,8 +68,15 @@ export interface LaufLage {
   ereignisse: Ereignis[]; // die letzten
 }
 
-/** Was geschrieben werden darf: nur der Lüftungsmodus, der laut Definition nach wenigen Minuten von selbst zurückfällt. */
-export const SCHREIBBAR: Record<string, string[]> = { SetFanMode: ['Holiday', 'Reduced', 'Normal', 'High'] };
+/**
+ * Was geschrieben werden darf: nur der Lüftungsmodus. SetFanMode fällt laut Definition nach wenigen Minuten von selbst zurück;
+ * SetFanModeAlt (wie das Bedienteil Brink AirControl) bleibt, freigegeben am 2026-11-22, weil SetFanMode an der Wolf CWL nicht
+ * wirkt. Der Versuch dazu stellt den Ausgangswert selbst wieder ein.
+ */
+export const SCHREIBBAR: Record<string, string[]> = {
+  SetFanMode: ['Holiday', 'Reduced', 'Normal', 'High'],
+  SetFanModeAlt: ['Holiday', 'Reduced', 'Normal', 'High'],
+};
 
 export class VersuchFehler extends Error {
   code: number;

@@ -131,9 +131,11 @@ alle paar Sekunden weiter und hält jede Anfrage, Antwort und Notiz als Ereignis
 
 Für die Wolf CWL Excellent ([`src/cwl-versuche.ts`](src/cwl-versuche.ts)): Bestandsaufnahme (alle Lesebefehle der Definition),
 Stufe am Gerät (0 bis 3 von Hand), Stufe per eBus (`SetFanMode High`, warten bis die CWL zurückfällt, dann den Ausgangswert),
-Filter quittieren (von Hand am Gerät, die App liest davor und danach) und Unbekanntes abtasten (`hex` an `40 22 xx` und
-`40 50 xx`, braucht `--enablehex`). Geschrieben wird nur `SetFanMode` mit Holiday, Reduced, Normal oder High, `hex` nur an das
-Gerät mit `40 22`/`40 50` und einer Kennung ([`src/versuche.ts`](src/versuche.ts), `SCHREIBBAR`).
+Stufe wie das Bedienteil (`SetFanModeAlt High`, das nicht von selbst zurückfällt; einmal eine Taste am Gerät, dann den
+Ausgangswert), Filter quittieren (von Hand am Gerät, die App liest davor und danach) und Unbekanntes abtasten (`hex` an `40 22 xx`
+und `40 50 xx`, braucht `--enablehex`). Geschrieben werden nur `SetFanMode` und `SetFanModeAlt` mit Holiday, Reduced, Normal oder
+High, `hex` nur an das Gerät mit `40 22`/`40 50` und einer Kennung ([`src/versuche.ts`](src/versuche.ts), `SCHREIBBAR`).
+`SetFanModeAlt` braucht die Zeile dazu in der Definition.
 
 ## eBus in Kürze
 

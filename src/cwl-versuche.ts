@@ -1,7 +1,8 @@
 // Die Versuche für eine Wolf CWL 300/400 Excellent (baugleich Brink Renovent Excellent), Definition encon/excellent von ebusd.
 // Abgesprochen am 2026-11-20: Stufe und Filter stellt, wer am Gerät steht, selbst ein, wenn die App darum bittet; per eBus
 // geschrieben wird nur SetFanMode (fällt laut Definition nach wenigen Minuten zurück), nie ResetNotifications; Abtasten liest nur.
-import type { Kontext, Versuch } from './versuche.ts';
+// Seit 2026-11-22 dazu SetFanModeAlt, das nicht von selbst zurückfällt: SetFanMode quittiert die CWL, schaltet aber nicht.
+import { SCHREIBBAR, type Kontext, type Versuch } from './versuche.ts';
 
 /** Was sich bei einem Stufenwechsel ändern sollte */
 export const STUFE = [
@@ -89,6 +90,49 @@ export const CWL_VERSUCHE: Versuch[] = [
           else k.notiz(`Ausgang ${vorher} lässt sich per SetFanMode nicht setzen, die CWL steht auf ${jetzt ?? '?'}`);
         }
       }
+    },
+  },
+  {
+    id: 'stufe-bedienteil',
+    titel: 'Stufe wie das Bedienteil',
+    beschreibung:
+      'Die App schaltet per eBus auf Stufe 3, so wie es das Bedienteil Brink AirControl tut (SetFanModeAlt High). Das fällt nicht ' +
+      'von selbst zurück: Du drückst einmal eine Stufe am Gerät, am Ende stellt die App den Ausgangswert wieder ein.',
+    dauer: 'etwa 4 Minuten',
+    async ablauf(k) {
+      const vorher = (await k.lies(STUFE)).FanMode;
+      if (!vorher || !SCHREIBBAR.SetFanModeAlt!.includes(vorher)) {
+        k.notiz(`Ausgang FanMode ${vorher ?? 'nicht lesbar'} lässt sich per SetFanModeAlt nicht wiederherstellen, der Versuch schreibt nichts`);
+        return;
+      }
+      k.notiz(`Ausgang: FanMode ${vorher}`);
+      await k.erledigt(
+        'Gleich schaltet die App per eBus auf Stufe 3 (SetFanModeAlt High). Das hält, bis jemand etwas anderes einstellt; am Ende ' +
+          'stellt die App die Ausgangsstufe wieder ein. Schau auf die Anzeige; „Erledigt“ schaltet.',
+      );
+      let geschrieben = false;
+      try {
+        geschrieben = true;
+        await k.schreibe('SetFanModeAlt', 'High');
+        await k.erledigt('Zeigt die Anzeige jetzt Stufe 3? Notiere, was du siehst, dann „Erledigt“.', { beobachten: STUFE, alleMs: 5 * SEKUNDE });
+        await k.warte(2 * MINUTE, 'Zwei Minuten beobachten, ob die Stufe bleibt. „Weiter“ geht früher.', {
+          beobachten: STUFE, alleMs: 10 * SEKUNDE,
+        });
+        await k.erledigt(
+          'Stelle am Gerät eine andere Stufe ein, zum Beispiel 1. Folgt die CWL? Notieren, dann „Erledigt“.',
+          { beobachten: STUFE, alleMs: 5 * SEKUNDE },
+        );
+      } finally {
+        if (geschrieben) {
+          await k.schreibe('SetFanModeAlt', vorher);
+          await k.lies(STUFE);
+        }
+      }
+      await k.erledigt(
+        `Die App hat per eBus die Ausgangsstufe (FanMode ${vorher}) eingestellt. Zeigt die Anzeige sie? Lässt sich die Stufe am Gerät ` +
+          'noch umstellen? Notieren, die Ausgangsstufe am Gerät einstellen, dann „Erledigt“.',
+        { beobachten: STUFE, alleMs: 5 * SEKUNDE },
+      );
     },
   },
   {
